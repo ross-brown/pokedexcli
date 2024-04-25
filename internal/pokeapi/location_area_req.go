@@ -8,14 +8,27 @@ import (
 )
 
 func (c *Client) ListLocationAreas(pageURL *string) (LocationAreasResp, error) {
-	endpoint := "/location-area"
-	fullURL := baseURL + endpoint
+	url := baseURL + "/location-area"
 
 	if pageURL != nil {
-		fullURL = *pageURL
+		url = *pageURL
 	}
 
-	req, err := http.NewRequest("GET", fullURL, nil)
+	//check the cache
+	dat, ok := c.cache.Get(url)
+	if ok {
+		fmt.Println("CACHE HIT!")
+		locationAreasResp := LocationAreasResp{}
+		err := json.Unmarshal(dat, &locationAreasResp)
+		if err != nil {
+			return LocationAreasResp{}, err
+		}
+
+		return locationAreasResp, nil
+	}
+	fmt.Println("Cache MISSED")
+
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return LocationAreasResp{}, err
 	}
@@ -30,16 +43,18 @@ func (c *Client) ListLocationAreas(pageURL *string) (LocationAreasResp, error) {
 		return LocationAreasResp{}, fmt.Errorf("bad status code: %v", res.StatusCode)
 	}
 
-	data, err := io.ReadAll(res.Body)
+	dat, err = io.ReadAll(res.Body)
 	if err != nil {
 		return LocationAreasResp{}, err
 	}
 
 	locationAreasResp := LocationAreasResp{}
-	err = json.Unmarshal(data, &locationAreasResp)
+	err = json.Unmarshal(dat, &locationAreasResp)
 	if err != nil {
 		return LocationAreasResp{}, err
 	}
+
+	c.cache.Add(url, dat)
 
 	return locationAreasResp, nil
 }
